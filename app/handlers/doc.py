@@ -1,59 +1,56 @@
-# Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+# Copyright (c) 2014, the Dart project authors.  Please see the AUTHORS file
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-import codecs
-import itertools
-import os
-import re
-
 import cherrypy
-import yaml
 
 import handlers
+
+_REDIRECTS = {
+  # /doc/ goes to "Getting started".
+  '':                             'get-started.html',
+
+  # Redirect from the old names for the commands.
+  'pub-install.html':             'cmd/pub-get.html',
+  'pub-update.html':              'cmd/pub-upgrade.html',
+
+  # Most of the moved docs have the same name.
+  'get-started.html':             'get-started.html',
+  'dependencies.html':            'dependencies.html',
+  'pubspec.html':                 'pubspec.html',
+  'package-layout.html':          'package-layout.html',
+  'assets-and-transformers.html': 'assets-and-transformers.html',
+  'faq.html':                     'faq.html',
+  'glossary.html':                'glossary.html',
+  'versioning.html':              'versioning.html',
+
+  # The command references were moved under "cmd".
+  'pub-build.html':               'cmd/pub-build.html',
+  'pub-cache.html':               'cmd/pub-cache.html',
+  'pub-get.html':                 'cmd/pub-get.html',
+  'pub-lish.html':                'cmd/pub-lish.html',
+  'pub-upgrade.html':             'cmd/pub-upgrade.html',
+  'pub-serve.html':               'cmd/pub-serve.html'
+}
 
 class Doc(object):
     """The handler for /doc/*."""
 
     def index(self):
-        raise cherrypy.HTTPRedirect('/doc/')
+        raise cherrypy.HTTPRedirect(
+            'https://www.dartlang.org/tools/pub/get-started.html')
 
-    def show(self, filename):
-        """Display a documentation page.
+    def show(self, path):
+        """Redirect to a documentation page on dartlang.org.
 
-        Each page is static HTML wrapped in a dynamic layout. The HTML is
-        generated offline from Markdown source files in /doc; the titles are
-        loaded from those source files as well.
+        Pub used to host its own docs, but no longer does. These redirects
+        allow existing links to the docs to map to the new ones.
         """
 
-        # Redirect from the old names for the commands.
-        if filename == 'pub-install.html':
-            raise cherrypy.HTTPRedirect('/doc/pub-get.html')
-
-        if filename == 'pub-update.html':
-            raise cherrypy.HTTPRedirect('/doc/pub-upgrade.html')
-
-        if filename == '': filename = 'index.html'
-        root = os.path.join(os.path.dirname(__file__), '..')
-
-        html_path = os.path.join(root, 'views', 'doc', filename)
-        if not os.path.isfile(html_path):
+        # Only redirect the known paths.
+        try:
+            redirect = _REDIRECTS[path]
+            raise cherrypy.HTTPRedirect(
+                'https://www.dartlang.org/tools/pub/' + redirect)
+        except KeyError:
             handlers.http_error(404)
-
-        markdown_filename = re.sub("\.html$", ".markdown", filename)
-        markdown_path = os.path.join(root, 'doc', markdown_filename)
-        with codecs.open(markdown_path, encoding='utf-8') as f:
-            frontmatter = self._frontmatter(f)
-
-        with codecs.open(html_path, encoding='utf-8') as f:
-            html = """<article>
-                <h1>%s</h1>
-                %s
-                </article>""" % (frontmatter['title'], f.read())
-            return handlers.layout(html, title=frontmatter['title'])
-
-    def _frontmatter(self, f):
-        """Parses the YAML frontmatter of a file."""
-        if f.readline() != '---\n': return {}
-        yaml_lines = itertools.takewhile(lambda line: line != '---\n', f)
-        return yaml.load(''.join(yaml_lines))

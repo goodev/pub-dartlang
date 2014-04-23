@@ -45,8 +45,7 @@ class Application(cherrypy.Application):
             '/gs_/{filename:.*?}', controller='root', action='serve')
 
         self.dispatcher.connect('doc', '/doc', Doc(), action='index')
-        self.dispatcher.connect(
-            'doc', '/doc/{filename:.*?}', Doc(), action='show')
+        self.dispatcher.connect('doc', '/doc/{path:.*?}', Doc(), action='show')
 
         self._resource('package', 'packages', Packages())
         self._resource('private-key', 'private-keys', PrivateKeys())
